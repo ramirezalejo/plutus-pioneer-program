@@ -11,7 +11,7 @@
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE TypeOperators         #-}
 
-module Week07.StateMachine
+module Week07.StateMachineRPS
     ( Game (..)
     , GameChoice (..)
     , FirstParams (..)
@@ -36,7 +36,7 @@ import qualified Ledger.Typed.Scripts         as Scripts
 import           Ledger.Value
 import           Playground.Contract          (ToSchema)
 import           Prelude                      (Semigroup (..))
-import qualified Prelude                    
+import qualified Prelude                      
 
 data Game = Game
     { gFirst          :: !PubKeyHash
@@ -49,14 +49,22 @@ data Game = Game
 
 PlutusTx.makeLift ''Game
 
-data GameChoice = Zero | One
+data GameChoice = Rock | Paper | Scissors
     deriving (Show, Generic, FromJSON, ToJSON, ToSchema, Prelude.Eq, Prelude.Ord)
+
+{- instance GT GameChoice where
+    {-# INLINABLE (>) #-}
+    Rock     > Scissors = True
+    Paper    > Rock     = True
+    Scissors > Paper    = True
+    _        > _        = False -}
 
 instance Eq GameChoice where
     {-# INLINABLE (==) #-}
-    Zero == Zero = True
-    One  == One  = True
-    _    == _    = False
+    Rock      == Rock       = True
+    Paper     == Paper      = True
+    Scissors  == Scissors   = True
+    _         == _          = False
 
 PlutusTx.unstableMakeIsData ''GameChoice
 
@@ -71,7 +79,7 @@ instance Eq GameDatum where
 
 PlutusTx.unstableMakeIsData ''GameDatum
 
-data GameRedeemer = Play GameChoice | Reveal ByteString | ClaimFirst | ClaimSecond
+data GameRedeemer = Play GameChoice | RevealDraw ByteString | Reveal ByteString | ClaimFirst | ClaimSecond
     deriving Show
 
 PlutusTx.unstableMakeIsData ''GameRedeemer
@@ -95,6 +103,12 @@ transition game s r = case (stateValue s, stateData s, r) of
                                                        Constraints.mustValidateIn (to $ gPlayDeadline game)
                                                      , State (GameDatum bs $ Just c) (lovelaceValueOf $ 2 * gStake game)
                                                      )
+    (v, GameDatum bs (Just _), RevealDraw _)
+        | lovelaces v == (2 * gStake game)   -> Just ( Constraints.mustBeSignedBy (gFirst game)                     <>
+                                                       Constraints.mustValidateIn (to $ gRevealDeadline game)
+                                                     , State (GameDatum bs Nothing) (lovelaceValueOf $ gStake game)
+                                                     )
+    
     (v, GameDatum _ (Just _), Reveal _)
         | lovelaces v == (2 * gStake game)   -> Just ( Constraints.mustBeSignedBy (gFirst game)                     <>
                                                        Constraints.mustValidateIn (to $ gRevealDeadline game)       <>
@@ -107,8 +121,9 @@ transition game s r = case (stateValue s, stateData s, r) of
                                                        Constraints.mustPayToPubKey (gFirst game) token
                                                      , State Finished mempty
                                                      )
-    (v, GameDatum _ (Just _), ClaimSecond)
-        | lovelaces v == (2 * gStake game)   -> Just ( Constraints.mustBeSignedBy (gSecond game)                    <>
+    (v, GameDatum _ _, ClaimSecond)
+        | elem (lovelaces v)  [gStake game, (2 * gStake game)]   
+                                             -> Just ( Constraints.mustBeSignedBy (gSecond game)                    <>
                                                        Constraints.mustValidateIn (from $ 1 + gRevealDeadline game) <>
                                                        Constraints.mustPayToPubKey (gFirst game) token
                                                      , State Finished mempty
@@ -124,43 +139,53 @@ final Finished = True
 final _        = False
 
 {-# INLINABLE check #-}
-check :: ByteString -> ByteString -> GameDatum -> GameRedeemer -> ScriptContext -> Bool
-check bsZero' bsOne' (GameDatum bs (Just c)) (Reveal nonce) _ =
+check :: ByteString -> ByteString -> ByteString -> GameDatum -> GameRedeemer -> ScriptContext -> Bool
+check bsR' bsP' bsS' (GameDatum bs (Just c)) (Reveal nonce) _ =
+    sha2_256 (nonce `concatenate` get_beating_bs c) == bs
+      where
+        get_beating_bs :: GameChoice -> ByteString
+        get_beating_bs  Rock    = bsP'
+        get_beating_bs  Paper   = bsS'
+        get_beating_bs  _       = bsR'
+check bsR' bsP' bsS' (GameDatum bs (Just c)) (RevealDraw nonce) _ =
     sha2_256 (nonce `concatenate` get_bs c) == bs
       where
         get_bs :: GameChoice -> ByteString
-        get_bs  Zero = bsZero'
-        get_bs  _    = bsOne'
-check _       _      _                       _              _ = True
+        get_bs  Rock    = bsR'
+        get_bs  Paper   = bsP'
+        get_bs  _       = bsS'
+check _   _    _      _                       _              _ = True
 
 {-# INLINABLE gameStateMachine #-}
-gameStateMachine :: Game -> ByteString -> ByteString -> StateMachine GameDatum GameRedeemer
-gameStateMachine game bsZero' bsOne' = StateMachine
+gameStateMachine :: Game -> ByteString -> ByteString -> ByteString -> StateMachine GameDatum GameRedeemer
+gameStateMachine game bsR' bsP' bsS' = StateMachine
     { smTransition  = transition game
     , smFinal       = final
-    , smCheck       = check bsZero' bsOne'
+    , smCheck       = check bsR' bsP' bsS'
     , smThreadToken = Just $ gToken game
     }
 
 {-# INLINABLE mkGameValidator #-}
-mkGameValidator :: Game -> ByteString -> ByteString -> GameDatum -> GameRedeemer -> ScriptContext -> Bool
-mkGameValidator game bsZero' bsOne' = mkValidator $ gameStateMachine game bsZero' bsOne'
+mkGameValidator :: Game -> ByteString -> ByteString -> ByteString -> GameDatum -> GameRedeemer -> ScriptContext -> Bool
+mkGameValidator game bsR' bsP' bsS' = mkValidator $ gameStateMachine game bsR' bsP' bsS'
 
 type Gaming = StateMachine GameDatum GameRedeemer
 
-bsZero, bsOne :: ByteString
-bsZero = "0"
-bsOne  = "1"
+bsRock, bsPaper, bsScissors :: ByteString
+bsRock      = "Rock"
+bsPaper     = "Paper"
+bsScissors  = "Scissors"
 
 gameStateMachine' :: Game -> StateMachine GameDatum GameRedeemer
-gameStateMachine' game = gameStateMachine game bsZero bsOne
+gameStateMachine' game = gameStateMachine game bsRock bsPaper bsScissors
 
 gameInst :: Game -> Scripts.ScriptInstance Gaming
 gameInst game = Scripts.validator @Gaming
     ($$(PlutusTx.compile [|| mkGameValidator ||])
         `PlutusTx.applyCode` PlutusTx.liftCode game
-        `PlutusTx.applyCode` PlutusTx.liftCode bsZero
-        `PlutusTx.applyCode` PlutusTx.liftCode bsOne)
+        `PlutusTx.applyCode` PlutusTx.liftCode bsRock
+        `PlutusTx.applyCode` PlutusTx.liftCode bsPaper
+        `PlutusTx.applyCode` PlutusTx.liftCode bsScissors)
     $$(PlutusTx.compile [|| wrap ||])
   where
     wrap = Scripts.wrapValidator @GameDatum @GameRedeemer
@@ -202,7 +227,8 @@ firstGame fp = do
         client = gameClient game
         v      = lovelaceValueOf (fpStake fp)
         c      = fpChoice fp
-        bs     = sha2_256 $ fpNonce fp `concatenate` if c == Zero then bsZero else bsOne
+        bs     = sha2_256 $ fpNonce fp `concatenate` get_bs c
+      
     void $ mapError' $ runInitialise client (GameDatum bs Nothing) v
     logInfo @String $ "made first move: " ++ show (fpChoice fp)
 
@@ -219,11 +245,27 @@ firstGame fp = do
                 logInfo @String "first player reclaimed stake"
 
             GameDatum _ (Just c') | c' == c -> do
+                logInfo @String "second player played and draw"
+                void $ mapError' $ runStep client $ RevealDraw (fpNonce fp)
+                logInfo @String "first player revealed and draw"
+
+            GameDatum _ (Just c') | beats c c' -> do
                 logInfo @String "second player played and lost"
-                void $ mapError' $ runStep client $ Reveal $ fpNonce fp
+                void $ mapError' $ runStep client $ Reveal (fpNonce fp)
                 logInfo @String "first player revealed and won"
 
             _ -> logInfo @String "second player played and won"
+        where
+            beats :: GameChoice -> GameChoice -> Bool
+            beats Rock Scissors = True
+            beats Paper Rock = True
+            beats Scissors Paper = True
+            beats _ _ = False
+        
+            get_bs :: GameChoice -> ByteString
+            get_bs  Rock    = bsRock
+            get_bs  Paper   = bsPaper
+            get_bs  _       = bsScissors
 
 data SecondParams = SecondParams
     { spFirst          :: !PubKeyHash
@@ -262,9 +304,8 @@ secondGame sp = do
                 case m' of
                     Nothing -> logInfo @String "first player won"
                     Just _  -> do
-                        logInfo @String "first player didn't reveal"
+                        logInfo @String "Second player Grab"
                         void $ mapError' $ runStep client ClaimSecond
-                        logInfo @String "second player won"
 
             _ -> throwError "unexpected datum"
 
