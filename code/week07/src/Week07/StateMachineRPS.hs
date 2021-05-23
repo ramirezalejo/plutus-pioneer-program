@@ -103,13 +103,10 @@ transition game s r = case (stateValue s, stateData s, r) of
                                                        Constraints.mustValidateIn (to $ gPlayDeadline game)
                                                      , State (GameDatum bs $ Just c) (lovelaceValueOf $ 2 * gStake game)
                                                      )
-    (v, GameDatum _ (Just _), RevealDraw _)
+    (v, GameDatum bs (Just _), RevealDraw _)
         | lovelaces v == (2 * gStake game)   -> Just ( Constraints.mustBeSignedBy (gFirst game)                     <>
-                                                       Constraints.mustValidateIn (to $ gRevealDeadline game)       <>
-                                                       Constraints.mustPayToPubKey (gFirst game) token              <>
-                                                       Constraints.mustPayToPubKey (gSecond game)
-                                                                                       (lovelaceValueOf $ gStake game)
-                                                     , State Finished mempty
+                                                       Constraints.mustValidateIn (to $ gRevealDeadline game)
+                                                     , State (GameDatum bs Nothing) (lovelaceValueOf $ gStake game)
                                                      )
     
     (v, GameDatum _ (Just _), Reveal _)
@@ -124,8 +121,9 @@ transition game s r = case (stateValue s, stateData s, r) of
                                                        Constraints.mustPayToPubKey (gFirst game) token
                                                      , State Finished mempty
                                                      )
-    (v, GameDatum _ (Just _), ClaimSecond)
-        | lovelaces v == (2 * gStake game)   -> Just ( Constraints.mustBeSignedBy (gSecond game)                    <>
+    (v, GameDatum _ _, ClaimSecond)
+        | elem (lovelaces v)  [gStake game, (2 * gStake game)]   
+                                             -> Just ( Constraints.mustBeSignedBy (gSecond game)                    <>
                                                        Constraints.mustValidateIn (from $ 1 + gRevealDeadline game) <>
                                                        Constraints.mustPayToPubKey (gFirst game) token
                                                      , State Finished mempty
@@ -304,7 +302,7 @@ secondGame sp = do
 
                 m' <- mapError' $ getOnChainState client
                 case m' of
-                    Nothing -> logInfo @String "Game already finished"
+                    Nothing -> logInfo @String "first player won"
                     Just _  -> do
                         logInfo @String "Second player Grab"
                         void $ mapError' $ runStep client ClaimSecond
