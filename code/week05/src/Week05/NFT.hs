@@ -91,5 +91,8 @@ test = runEmulatorTraceIO $ do
     h1 <- activateContractWallet (Wallet 1) endpoints
     h2 <- activateContractWallet (Wallet 2) endpoints
     callEndpoint @"mint" h1 tn
+    callEndpoint @"mint" h2 "CBA"
+    void $ Emulator.waitNSlots 1
+    callEndpoint @"mint" h1 tn
     callEndpoint @"mint" h2 tn
     void $ Emulator.waitNSlots 1
