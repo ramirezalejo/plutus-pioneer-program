@@ -84,6 +84,6 @@ test = runEmulatorTraceIO $ do
     void $ Emulator.waitNSlots 1
     callEndpoint @"mint" h1 $ MintParams
         { mpTokenName = tn
-        , mpAmount    = -222
+        , mpAmount    = -111
         }
     void $ Emulator.waitNSlots 1
