@@ -43,7 +43,23 @@ PlutusTx.unstableMakeIsData ''VestingDatum
 -- This should validate if either beneficiary1 has signed the transaction and the current slot is before or at the deadline
 -- or if beneficiary2 has signed the transaction and the deadline has passed.
 mkValidator :: VestingDatum -> () -> ScriptContext -> Bool
-mkValidator _ _ _ = False -- FIX ME!
+mkValidator dat _ ctx = 
+    if checkSig (beneficiary1 dat) info 
+    then checkDeadline True (deadline dat)
+    else 
+    if checkSig (beneficiary2 dat) info 
+    then checkDeadline False (deadline dat)
+    else  traceIfFalse  "beneficiary's signature missing" False  
+  where
+    info :: TxInfo
+    info = scriptContextTxInfo ctx
+
+    checkSig :: PubKeyHash -> TxInfo -> Bool
+    checkSig beneficiary inf = beneficiary `elem` txInfoSignatories inf
+
+    checkDeadline :: Bool -> Slot -> Bool
+    checkDeadline True x = traceIfFalse "beneficiary's deadline missed" ((txInfoValidRange info) `contains` from x )
+    checkDeadline False y = traceIfFalse "beneficiary's deadline not reached" (before y (txInfoValidRange info))
 
 data Vesting
 instance Scripts.ScriptType Vesting where
@@ -118,9 +134,9 @@ grab = do
     isSuitable :: (VestingDatum -> Bool) -> TxOutTx -> Bool
     isSuitable p o = case txOutDatumHash $ txOutTxOut o of
         Nothing -> False
-        Just h  -> case Map.lookup h $ txData $ txOutTxTx o of
-            Nothing        -> False
-            Just (Datum e) -> maybe False p $ PlutusTx.fromData e
+        Just h  -> True --case Map.lookup h $ txData $ txOutTxTx o of
+        --     Nothing        -> False
+        --     Just (Datum e) -> maybe False p $ PlutusTx.fromData e
 
 endpoints :: Contract () VestingSchema Text ()
 endpoints = (give' `select` grab') >> endpoints
