@@ -125,8 +125,7 @@ transition game s r = case (stateValue s, stateData s, r) of
                                                      , State Finished mempty
                                                      )
     (v, GameDatum _ (Just _), ClaimSecond)
-        | elem (lovelaces v)  [gStake game, (2 * gStake game)]   
-                                             -> Just ( Constraints.mustBeSignedBy (gSecond game)                    <>
+        | lovelaces v == (2 * gStake game)   -> Just ( Constraints.mustBeSignedBy (gSecond game)                    <>
                                                        Constraints.mustValidateIn (from $ 1 + gRevealDeadline game) <>
                                                        Constraints.mustPayToPubKey (gFirst game) token
                                                      , State Finished mempty
