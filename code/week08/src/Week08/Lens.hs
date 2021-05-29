@@ -10,6 +10,7 @@ newtype Company = Company {_staff :: [Person]} deriving Show
 data Person  = Person
     { _name    :: String
     , _address :: Address
+    , _nickNames :: [String]
     } deriving Show
 
 newtype Address = Address {_city :: String} deriving Show
@@ -18,10 +19,12 @@ alejandro, lars :: Person
 alejandro = Person
   {  _name    = "Alejandro"
   ,  _address = Address {_city = "Zacateca"}
+  ,  _nickNames = ["Teso", "Figura", "Alejo"]
   }
 lars = Person
   {  _name    = "Lars"
   ,  _address = Address {_city = "Regensburg"}
+  ,  _nickNames = ["Profe","L"]
   }
 
 iohk :: Company
@@ -38,3 +41,6 @@ makeLenses ''Address
 
 goTo' :: String -> Company -> Company
 goTo' there c = c & staff . each . address . city .~ there
+
+getNickNames :: Company -> [String]
+getNickNames c = filter (\x -> length x > 1) (c ^. staff . each . nickNames)
