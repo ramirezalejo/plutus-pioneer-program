@@ -62,7 +62,6 @@ name = "A"
 token :: AssetClass
 token = AssetClass (currency, name)
 
-
 myTrace :: EmulatorTrace ()
 myTrace = do
     h <- activateContractWallet (Wallet 1) startEndpoint
