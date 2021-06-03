@@ -22,7 +22,7 @@ module Week08.TokenSaleWithEnd
     , startEndpoint
     , startEndpoint'
     , useEndpoints
-    , closeEndPoint
+    , closeEndpoint
     ) where
 
 import           Control.Monad                hiding (fmap)
@@ -212,8 +212,8 @@ useEndpoints ts = (setPrice' `select` addTokens' `select` buyTokens' `select` wi
     h :: Contract () TSUseSchema Text () -> Contract () TSUseSchema Text ()
     h = handleError logError
 
-closeEndPoint :: TokenSale -> Contract () TSCloseSchema Text ()
-closeEndPoint ts = close >> closeEndPoint ts
+closeEndpoint :: TokenSale -> Contract () TSCloseSchema Text ()
+closeEndpoint ts = close >> closeEndpoint ts
   where
     close :: Contract () TSCloseSchema Text ()
     close = h $ do 
