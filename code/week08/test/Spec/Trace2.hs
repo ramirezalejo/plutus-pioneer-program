@@ -38,7 +38,7 @@ tests :: TestTree
 tests = checkPredicateOptions
     (defaultCheckOptions & emulatorConfig .~ emCfg)
     "token sale trace"
-    (     walletFundsChange (Wallet 1) (Ada.lovelaceValueOf   10_000_000  <> assetClassValue token (-60))
+    (     walletFundsChange (Wallet 1) (Ada.lovelaceValueOf   25_000_000  <> assetClassValue token (-25))-- <> assetClassValue $ AssetClass (_ nftName') (1))
      .&&. walletFundsChange (Wallet 2) (Ada.lovelaceValueOf (-20_000_000) <> assetClassValue token   20)
      .&&. walletFundsChange (Wallet 3) (Ada.lovelaceValueOf (- 5_000_000) <> assetClassValue token    5)
     )
@@ -62,6 +62,7 @@ name = "A"
 token :: AssetClass
 token = AssetClass (currency, name)
 
+
 myTrace :: EmulatorTrace ()
 myTrace = do
     h <- activateContractWallet (Wallet 1) startEndpoint
@@ -74,7 +75,7 @@ myTrace = do
             Extras.logInfo $ "started token sale " ++ show ts
 
             h1 <- activateContractWallet (Wallet 1) $ useEndpoints ts
-            h1' <- activateContractWallet (Wallet 1) $ closeEndPoint ts
+            h1' <- activateContractWallet (Wallet 1) $ closeEndpoint ts
             h2 <- activateContractWallet (Wallet 2) $ useEndpoints ts
             h3 <- activateContractWallet (Wallet 3) $ useEndpoints ts
 
