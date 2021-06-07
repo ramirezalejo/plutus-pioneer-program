@@ -34,7 +34,7 @@ library
 
 test-suite plutus-pioneer-program-week08-tests
   type: exitcode-stdio-1.0
-  main-is: Spec.hs
+  main-is: Spec2.hs
   hs-source-dirs: test
   other-modules:       Spec.Model
                      , Spec.ModelWithClose
