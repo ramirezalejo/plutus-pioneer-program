@@ -136,7 +136,7 @@ instance ContractModel TSModel where
             m <- getTSState v
             case m of
                 Just t -> do
-                    deposit w $ nfts Map.! w
+                    deposit w $ (nfts Map.! w)
                     deposit w $ assetClassValue (tokens Map.! w) $ t ^. tssToken
                     deposit w $ lovelaceValueOf $ t ^. tssLovelace
                     (tsModel . at w) $= Nothing
