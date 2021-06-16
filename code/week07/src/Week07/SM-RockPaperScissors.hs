@@ -11,6 +11,7 @@
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE TypeOperators         #-}
 
+
 module Week07.StateMachineRPS
     ( Game (..)
     , GameChoice (..)
