@@ -36,10 +36,13 @@ test-suite plutus-pioneer-program-week08-tests
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   hs-source-dirs: test
-  other-modules:       Spec.Model
-                     , Spec.ModelWithClose
-                     , Spec.Trace
-                     , Spec.TraceWithClose
+  other-modules:     
+                     --  Spec.Model
+                      Spec.ModelWithEnd
+                     --, Spec.ModelWithClose
+                     --, Spec.Trace
+                     , Spec.Trace2
+                     --, Spec.TraceWithClose
   default-language: Haskell2010
   ghc-options:         -Wall -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
   build-depends:       base ^>=4.14.1.0
